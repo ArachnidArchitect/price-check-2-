@@ -18,6 +18,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   bool _noMatchFound = false;
+  
+  // Scroll controller and position tracking
+  final ScrollController _scrollController = ScrollController();
+  double _preSearchScrollPosition = 0.0;
+  bool _isSearching = false;
+  
+  // Sort options
+  bool _sortByPriceAscending = true;
+  bool _sortAlphabetically = true;
 
   @override
   void initState() {
@@ -26,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchProducts() async {
-    final url = Uri.parse('https://arachnidarchitect.github.io/price-checker-2/scripts/game_data.json');
+    final url = Uri.parse('https://lifechoices-scrapper.onrender.com/store/products');
     try {
       setState(() {
         _isLoading = true;
@@ -35,15 +44,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
-          _products = data.map((item) => item as Map<String, dynamic>).toList();
-          
-          _products.sort((a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo((b['name'] ?? '').toString().toLowerCase()));
-
-          _filteredProducts = List.from(_products);
-          _isLoading = false;
-        });
+        final data = json.decode(response.body);
+        if (data['status'] == 200 && data['results'] != null) {
+          setState(() {
+            _products = List<Map<String, dynamic>>.from(data['results']);
+            _sortProducts();
+            _filteredProducts = List.from(_products);
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'Invalid data format received';
+            _isLoading = false;
+          });
+          print(_errorMessage);
+        }
       } else {
         setState(() {
           _errorMessage = 'Failed to load products: ${response.statusCode}';
@@ -60,54 +75,126 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _sortProducts() {
+    // Sort products alphabetically first
+    _products.sort((a, b) {
+      final String nameA = a['product_name']?.toString().toLowerCase() ?? '';
+      final String nameB = b['product_name']?.toString().toLowerCase() ?? '';
+      return nameA.compareTo(nameB);
+    });
+
+    // Then sort by price if not sorting alphabetically
+    if (!_sortAlphabetically) {
+      _products.sort((a, b) {
+        final double priceA = double.tryParse(a['price']?.toString() ?? '0') ?? 0;
+        final double priceB = double.tryParse(b['price']?.toString() ?? '0') ?? 0;
+        return _sortByPriceAscending ? priceA.compareTo(priceB) : priceB.compareTo(priceA);
+      });
+    }
+  }
+
+  void _toggleSortOrder() {
+    setState(() {
+      _sortByPriceAscending = !_sortByPriceAscending;
+      _sortProducts();
+      _performSearch(_searchQuery); // Re-apply search filter with new sort
+    });
+  }
+
+  void _toggleSortType() {
+    setState(() {
+      _sortAlphabetically = !_sortAlphabetically;
+      _sortProducts();
+      _performSearch(_searchQuery); // Re-apply search filter with new sort
+    });
+  }
+
   void _performSearch(String query) {
     setState(() {
+      final wasSearching = _searchQuery.isNotEmpty;
       _searchQuery = query.trim().toLowerCase();
       
       if (_searchQuery.isEmpty) {
         _filteredProducts = List.from(_products);
         _noMatchFound = false;
+        _isSearching = false;
+        
+        // Restore scroll position when search is cleared
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_preSearchScrollPosition);
+          }
+        });
+        
         return;
       }
       
-      // Apply strict search filtering
+      // If this is a new search (not just typing), save the current position
+      if (!wasSearching && _scrollController.hasClients) {
+        _preSearchScrollPosition = _scrollController.position.pixels;
+      }
+      
+      // Apply search filtering
       _filteredProducts = _products.where((product) {
-        final String name = product['name']?.toString().toLowerCase() ?? '';
-        
+        final String name = product['product_name']?.toString().toLowerCase() ?? '';
         final List<String> searchTerms = _searchQuery.split(' ');
-        final List<String> productWords = name.split(' ');
-        
-        return searchTerms.any((term) => 
-          productWords.any((word) => word == term)
-        );
+        return searchTerms.every((term) => name.contains(term));
       }).toList();
       
       _noMatchFound = _filteredProducts.isEmpty;
+      _isSearching = true;
+
+      // Always scroll to top when starting a new search
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
     });
   }
 
-  // Function to determine store from image URL or product name
-  String determineStore(String imageUrl, String name) {
-    // Extract store from image URL
-    if (imageUrl.contains('woolworths')) {
-      return 'woolworths';
-    } else if (imageUrl.contains('checkers')) {
-      return 'checkers';
-    } else if (imageUrl.contains('shoprite')) {
-      return 'shoprite';
-    } else if (imageUrl.contains('pick-n-pay') || imageUrl.contains('picknpay')) {
-      return 'picknpay';
-    } else if (imageUrl.contains('spar')) {
-      return 'spar';
-    }
-    
-    // Default store if we can't determine
-    return 'default';
+  // Function to show image in a modal
+  void _showImageModal(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                ),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.image_not_supported, size: 100, color: Colors.white);
+                  },
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: IconButton(
+                  icon: Icon(Icons.close, color: Colors.green, size: 30),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -200,7 +287,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Sort by: ',
+                  style: GoogleFonts.poppins(fontSize: 14),
+                ),
+                TextButton.icon(
+                  onPressed: _toggleSortType,
+                  icon: Icon(_sortAlphabetically ? Icons.sort_by_alpha : Icons.attach_money, size: 18),
+                  label: Text(
+                    _sortAlphabetically ? 'A-Z' : 'Price',
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Color(0xFF00BF63),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                  ),
+                ),
+                if (!_sortAlphabetically) 
+                  IconButton(
+                    onPressed: _toggleSortOrder,
+                    icon: Icon(
+                      _sortByPriceAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 18,
+                    ),
+                    color: Color(0xFF00BF63),
+                    padding: EdgeInsets.all(4),
+                    constraints: BoxConstraints(),
+                  ),
+              ],
+            ),
+            SizedBox(height: 8),
             Expanded(
               child: Container(
                 color: Colors.white,
@@ -235,13 +356,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         )
                       : ListView.builder(
+                          controller: _scrollController,
                           itemCount: _filteredProducts.length,
                           itemBuilder: (context, index) {
-                            final data = _filteredProducts[index];
-                            final String name = data['name']?.toString() ?? 'Unknown Product';
-                            final String price = data['price']?.toString() ?? 'Price not available';
-                            final String imageUrl = data['image']?.toString() ?? '';
-                            final String store = determineStore(imageUrl, name);
+                            final product = _filteredProducts[index];
+                            final String name = product['product_name']?.toString() ?? 'Unknown Product';
+                            final String price = 'R${product['price']?.toString() ?? '0.00'}';
+                            final String imageUrl = product['img']?.toString() ?? '';
+                            final String logoUrl = product['logo']?.toString() ?? '';
 
                             return Container(
                               margin: EdgeInsets.symmetric(vertical: 8.0),
@@ -255,14 +377,22 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: NetworkImage(imageUrl),
-                                        fit: BoxFit.contain,
-                                      ),
+                                  GestureDetector(
+                                    onTap: imageUrl.isNotEmpty 
+                                      ? () => _showImageModal(context, imageUrl)
+                                      : null,
+                                    child: SizedBox(
+                                      width: 80,
+                                      height: 80,
+                                      child: imageUrl.isNotEmpty
+                                        ? Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
+                                            },
+                                          )
+                                        : Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
                                     ),
                                   ),
                                   SizedBox(width: 12),
@@ -298,10 +428,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                   SizedBox(width: 8),
-                                  Container(
+                                  SizedBox(
                                     width: 40,
                                     height: 40,
-                                    child: _buildStoreLogo(store),
+                                    child: _buildStoreLogo(logoUrl),
                                   ),
                                 ],
                               ),
@@ -316,35 +446,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildStoreLogo(String store) {
-    final Map<String, String> storeAssets = {
-      'woolworths': 'assets/store_logos/woolworths.png',
-      'checkers': 'assets/store_logos/checkers.png',
-      'shoprite': 'assets/store_logos/shoprite.png',
-      'picknpay': 'assets/store_logos/picknpay.png',
-      'spar': 'assets/store_logos/spar.png',
-      'default': 'assets/store_logos/default.png',
-    };
-    
-    String assetPath = storeAssets[store] ?? storeAssets['default']!;
-    
-    Container fallbackIcon = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        shape: BoxShape.circle,
-      ),
-      child: Icon(Icons.store, size: 24, color: Colors.grey[700]),
-    );
-    
-    return Image.asset(
-      assetPath,
+  Widget _buildStoreLogo(String logoUrl) {
+    return Image.network(
+      logoUrl,
       width: 40,
       height: 40,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        return fallbackIcon;
+        return Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.store, size: 24, color: Colors.grey[700]),
+        );
       },
     );
   }
