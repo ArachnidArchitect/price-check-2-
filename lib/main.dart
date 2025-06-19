@@ -93,16 +93,16 @@ class MainScreenState extends State<MainScreen> {
                 );
               },
             ),
-            IconButton(
-              icon: Icon(Icons.shopping_cart, color: Colors.white),
-              onPressed: () {
-                _onItemTapped(3);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => MainScreen(content: CartScreen())),
-                );
-              },
-            ),
+            // IconButton(
+            //   icon: Icon(Icons.shopping_cart, color: Colors.white),
+            //   onPressed: () {
+            //     _onItemTapped(3);
+            //     Navigator.pushReplacement(
+            //       context,
+            //       MaterialPageRoute(builder: (context) => MainScreen(content: CartScreen())),
+            //     );
+            //   },
+            // ),
             IconButton(
               icon: Icon(Icons.account_circle, color: Colors.white),
               onPressed: () {

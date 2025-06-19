@@ -35,6 +35,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.1.1  # Added shared_preferences package
 
+  http: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
