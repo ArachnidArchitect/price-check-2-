@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'shopping_lists_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -38,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
           _products = data.map((item) => item as Map<String, dynamic>).toList();
-          
+
           _products.sort((a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo((b['name'] ?? '').toString().toLowerCase()));
 
           _filteredProducts = List.from(_products);
@@ -63,32 +64,31 @@ class _HomeScreenState extends State<HomeScreen> {
   void _performSearch(String query) {
     setState(() {
       _searchQuery = query.trim().toLowerCase();
-      
+
       if (_searchQuery.isEmpty) {
         _filteredProducts = List.from(_products);
         _noMatchFound = false;
         return;
       }
-      
+
       // Apply strict search filtering
       _filteredProducts = _products.where((product) {
         final String name = product['name']?.toString().toLowerCase() ?? '';
-        
+
         final List<String> searchTerms = _searchQuery.split(' ');
         final List<String> productWords = name.split(' ');
-        
-        return searchTerms.any((term) => 
-          productWords.any((word) => word == term)
+
+        return searchTerms.any((term) =>
+            productWords.any((word) => word == term)
         );
       }).toList();
-      
+
       _noMatchFound = _filteredProducts.isEmpty;
     });
   }
 
   // Function to determine store from image URL or product name
   String determineStore(String imageUrl, String name) {
-    // Extract store from image URL
     if (imageUrl.contains('woolworths')) {
       return 'woolworths';
     } else if (imageUrl.contains('checkers')) {
@@ -100,8 +100,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (imageUrl.contains('spar')) {
       return 'spar';
     }
-    
-    // Default store if we can't determine
     return 'default';
   }
 
@@ -175,15 +173,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 prefixIcon: Icon(Icons.search, color: Color(0xFF00BF63)),
-                suffixIcon: _searchQuery.isNotEmpty 
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: Color(0xFF00BF63)),
-                      onPressed: () {
-                        _searchController.clear();
-                        _performSearch('');
-                      },
-                    )
-                  : null,
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: Color(0xFF00BF63)),
+                        onPressed: () {
+                          _searchController.clear();
+                          _performSearch('');
+                        },
+                      )
+                    : null,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(30.0)),
                   borderSide: BorderSide(
@@ -204,110 +202,120 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Container(
                 color: Colors.white,
-                child: _isLoading 
-                  ? Center(child: CircularProgressIndicator(color: Color(0xFF00BF63)))
-                  : _errorMessage.isNotEmpty
-                    ? Center(child: Text(_errorMessage, style: GoogleFonts.poppins(color: Colors.red)))
-                    : _noMatchFound
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.search_off, size: 48, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
-                                'Product not found',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey[700],
+                child: _isLoading
+                    ? Center(child: CircularProgressIndicator(color: Color(0xFF00BF63)))
+                    : _errorMessage.isNotEmpty
+                        ? Center(child: Text(_errorMessage, style: GoogleFonts.poppins(color: Colors.red)))
+                        : _noMatchFound
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.search_off, size: 48, color: Colors.grey),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Product not found',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Try a different search term',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Try a different search term',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _filteredProducts.length,
-                          itemBuilder: (context, index) {
-                            final data = _filteredProducts[index];
-                            final String name = data['name']?.toString() ?? 'Unknown Product';
-                            final String price = data['price']?.toString() ?? 'Price not available';
-                            final String imageUrl = data['image']?.toString() ?? '';
-                            final String store = determineStore(imageUrl, name);
+                              )
+                            : ListView.builder(
+                                itemCount: _filteredProducts.length,
+                                itemBuilder: (context, index) {
+                                  final data = _filteredProducts[index];
+                                  final String name = data['name']?.toString() ?? 'Unknown Product';
+                                  final String price = data['price']?.toString() ?? 'Price not available';
+                                  final String imageUrl = data['image']?.toString() ?? '';
+                                  final String store = determineStore(imageUrl, name);
 
-                            return Container(
-                              margin: EdgeInsets.symmetric(vertical: 8.0),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Color(0xFF00BF63),
-                                    width: 1.0,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
+                                  return Container(
+                                    margin: EdgeInsets.symmetric(vertical: 8.0),
                                     decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: NetworkImage(imageUrl),
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        price,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                      border: Border(
+                                        bottom: BorderSide(
                                           color: Color(0xFF00BF63),
+                                          width: 1.0,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  SizedBox(width: 8),
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    child: _buildStoreLogo(store),
-                                  ),
-                                ],
+                                    ),
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ShoppingListsScreen(productData: data), // Passing data
+                                          ),
+                                        );
+                                      },
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 80,
+                                            height: 80,
+                                            decoration: BoxDecoration(
+                                              image: DecorationImage(
+                                                image: NetworkImage(imageUrl),
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            flex: 3,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  name,
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  maxLines: 3,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                price,
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF00BF63),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(width: 8),
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            child: _buildStoreLogo(store),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
               ),
             ),
           ],
@@ -315,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildStoreLogo(String store) {
     final Map<String, String> storeAssets = {
       'woolworths': 'assets/store_logos/woolworths.png',
@@ -325,26 +333,25 @@ class _HomeScreenState extends State<HomeScreen> {
       'spar': 'assets/store_logos/spar.png',
       'default': 'assets/store_logos/default.png',
     };
-    
+
     String assetPath = storeAssets[store] ?? storeAssets['default']!;
-    
-    Container fallbackIcon = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        shape: BoxShape.circle,
-      ),
-      child: Icon(Icons.store, size: 24, color: Colors.grey[700]),
-    );
-    
+
     return Image.asset(
       assetPath,
       width: 40,
       height: 40,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
-        return fallbackIcon;
+        // If the image is not found, display a placeholder
+        return Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.store, size: 24, color: Colors.grey[700]),
+        );
       },
     );
   }

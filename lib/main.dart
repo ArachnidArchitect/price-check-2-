@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/onboarding_screen.dart';
@@ -68,7 +69,7 @@ class MainScreenState extends State<MainScreen> {
                 _onItemTapped(0);
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => MainScreen(content: OnboardingScreen())),
+                  MaterialPageRoute(builder: (context) => MainScreen(content: HomeScreen())),
                 );
               },
             ),
@@ -88,7 +89,7 @@ class MainScreenState extends State<MainScreen> {
                 _onItemTapped(2);
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => MainScreen(content: ShoppingListsScreen())),
+                  MaterialPageRoute(builder: (context) => MainScreen(content: ShoppingListsScreen(productData: {}))),  // Default empty data
                 );
               },
             ),
