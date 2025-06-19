@@ -204,7 +204,7 @@ class _ShoppingListsScreenState extends State<ShoppingListsScreen> {
                 ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      _isAddingCategory = !_isAddingCategory;  
+                      _isAddingCategory = !_isAddingCategory; 
                     });
                   },
                   child: Text('Add New Category'),
